@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>5市 ごみ分別比較ナビ</title>
+<style>
+:root{--blue:#2563eb;--bg:#f5f7fb;--line:#dfe5ee;--text:#172033;--muted:#687386}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;color:var(--text);background:linear-gradient(135deg,#eef4ff,#f8fafc 55%,#eefbf7)}
+.wrap{max-width:1180px;margin:auto;padding:32px 20px 60px}
+header{text-align:center;margin-bottom:25px}.logo{display:inline-flex;width:58px;height:58px;border-radius:18px;background:var(--blue);color:#fff;align-items:center;justify-content:center;font-size:30px}
+h1{margin:12px 0 7px;font-size:32px}.sub{color:var(--muted);margin:0}
+.panel{background:#fff;border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 12px 35px #1e2d4b18;margin-bottom:20px}
+.searchbox{display:grid;grid-template-columns:1fr auto;gap:12px}
+input{width:100%;height:54px;border:2px solid var(--line);border-radius:13px;padding:0 16px;font-size:17px;background:#fff}
+button{font:inherit}.clear{height:54px;border:0;border-radius:13px;background:#172033;color:#fff;padding:0 20px;cursor:pointer}
+.help,.summary,.footer{color:var(--muted);font-size:13px}.summary{margin-top:9px;font-weight:700}
+.title{font-weight:800;font-size:18px;margin:24px 0 12px}
+.grid{display:flex;flex-wrap:wrap;gap:9px}
+.chip{border:1px solid #cbdaf8;background:#f8fbff;border-radius:12px;padding:10px 13px;cursor:pointer;font-size:14px}
+.chip:hover,.chip.selected{background:#eaf1ff;border-color:var(--blue);color:#1d4ed8;font-weight:700}
+#result{display:none}#result.show{display:block}
+.resultHead{display:flex;justify-content:space-between;gap:15px;align-items:end;margin-bottom:16px}
+.resultHead h2{margin:0;font-size:27px}.ok{background:#ecfdf5;color:#047857;border-radius:999px;padding:8px 13px;font-size:13px;font-weight:800}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.card{border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff;min-width:0}
+.card h3{margin:0 0 12px;font-size:18px}.badge{display:inline-block;border-radius:999px;padding:7px 10px;font-size:14px;font-weight:800;margin-bottom:12px}
+.meta{font-size:13px;line-height:1.55;margin:7px 0}.meta b{display:block;color:var(--muted);font-size:11px;text-transform:uppercase}
+.note{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;line-height:1.6}
+.warn{margin-top:8px;color:#b45309;font-size:12px}.empty{text-align:center;color:var(--muted)}
+.footer{text-align:center;margin-top:20px}
+@media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.wrap{padding:22px 12px 40px}.panel{padding:17px}.searchbox{grid-template-columns:1fr}.cards{grid-template-columns:1fr}h1{font-size:26px}.resultHead{align-items:start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="logo">♻</div><h1>5市 ごみ分別比較ナビ</h1><p class="sub">品目名を選ぶだけで、5市の分別区分をまとめて比較できます。</p></header>
+
+<section class="panel">
+<label for="search" style="font-weight:800;display:block;margin-bottom:9px">品目名で検索</label>
+<div class="searchbox"><input id="search" list="items" placeholder="例：ペットボトル、乾電池、傘"><button id="clear" class="clear">クリア</button></div>
+<datalist id="items"></datalist>
+<div class="summary">5市すべてを比較できる共通品目：<span id="commonCount"></span>件 ／ 5市の登録品目：<span id="allCount"></span>種類</div>
+<div class="title">5市共通品目 <span class="help">（クリックすると5市を比較）</span></div>
+<div id="chips" class="grid"></div>
+</section>
+
+<section id="result" class="panel">
+<div class="resultHead"><div><div class="help">5市横断比較</div><h2 id="itemTitle"></h2></div><div class="ok">5市すべて表示</div></div>
+<div id="cards" class="cards"></div>
+</section>
+<section id="empty" class="panel empty">上の共通品目をクリックするか、品目名を入力してください。</section>
+<div class="footer">processed_data の5市分データをもとにした横断比較ページです。</div>
+</div>
+<script>
+const D={"cities": {"Aoi市": [{"item": "ペットボトル", "category": "リサイクル", "note": "リサイクル品目です。資源回収日に出してください。"}, {"item": "新聞紙", "category": "その他", "note": "再資源化しますので、汚れを落としてからお出しください。"}, {"item": "ダンボール", "category": "その他", "note": "資源として回収します。"}, {"item": "アルミ缶", "category": "その他", "note": "リサイクル品目です。資源回収日に出してください。"}, {"item": "スチール缶", "category": "その他", "note": "再資源化しますので、汚れを落としてからお出しください。"}, {"item": "空きびん", "category": "リサイクル", "note": "資源として回収します。"}, {"item": "割りばし", "category": "その他", "note": "燃やせるごみとして週2回収集します。"}, {"item": "紙オムツ", "category": "その他", "note": "可燃物です。収集日の朝に集積所へお出しください。"}, {"item": "乾電池", "category": "その他", "note": "資源として回収します。"}, {"item": "蛍光灯", "category": "その他", "note": "リサイクル品目です。資源回収日に出してください。"}, {"item": "傘", "category": "燃やせないごみ", "note": "燃やせない材質のため、月2回のコンテナ回収日にお出しください。"}, {"item": "靴", "category": "その他", "note": "コンテナ回収の対象です。"}, {"item": "衣料品", "category": "その他", "note": "燃やせるごみとして週2回収集します。"}, {"item": "生ゴミ", "category": "その他", "note": "可燃物です。収集日の朝に集積所へお出しください。"}, {"item": "食用油", "category": "その他", "note": "資源として回収します。"}, {"item": "プラスチック容器", "category": "リサイクル", "note": "リサイクル品目です。資源回収日に出してください。"}, {"item": "発泡スチロール", "category": "その他", "note": "可燃物です。収集日の朝に集積所へお出しください。"}, {"item": "CD／DVD", "category": "その他", "note": "コンテナ回収の対象です。"}, {"item": "鏡", "category": "その他", "note": "金属・ガラス類としてコンテナ回収します。"}, {"item": "包丁", "category": "その他", "note": "燃やせない材質のため、月2回のコンテナ回収日にお出しください。"}, {"item": "自転車", "category": "粗大ごみ", "note": "申込制で回収します。"}, {"item": "布団", "category": "その他", "note": "粗大ごみです。事前申込が必要です。"}, {"item": "扇風機", "category": "その他", "note": "収集には事前の申し込みと手数料券が必要です。"}, {"item": "電子レンジ", "category": "その他", "note": "申込制で回収します。"}, {"item": "パソコン", "category": "その他", "note": "市では収集できません。販売店または専門業者へ。"}, {"item": "アイロン", "category": "燃やせないごみ", "note": "燃やせない材質のため、月2回のコンテナ回収日にお出しください。"}, {"item": "石油ストーブ", "category": "その他", "note": "申込制で回収します。"}, {"item": "傘立て", "category": "その他", "note": "金属・ガラス類としてコンテナ回収します。"}, {"item": "カーペット", "category": "その他", "note": "収集には事前の申し込みと手数料券が必要です。"}, {"item": "鏡台", "category": "その他", "note": "申込制で回収します。"}, {"item": "ガスコンロ", "category": "燃やせないごみ", "note": "金属・ガラス類としてコンテナ回収します。"}, {"item": "給湯器", "category": "その他", "note": "収集の対象外です。購入店にご相談ください。"}, {"item": "キャリーバッグ", "category": "その他", "note": "申込制で回収します。"}, {"item": "消火器", "category": "その他", "note": "市では収集できません。販売店または専門業者へ。"}, {"item": "食器棚", "category": "その他", "note": "収集には事前の申し込みと手数料券が必要です。"}, {"item": "スプレー缶", "category": "燃やせないごみ", "note": "コンテナ回収の対象です。"}, {"item": "体温計(水銀)", "category": "その他", "note": "市では収集できません。販売店または専門業者へ。"}, {"item": "畳", "category": "その他", "note": "収集の対象外です。購入店にご相談ください。"}, {"item": "机", "category": "その他", "note": "申込制で回収します。"}, {"item": "テレビ", "category": "その他", "note": "市では収集できません。販売店または専門業者へ。"}, {"item": "時計", "category": "燃やせないごみ", "note": "燃やせない材質のため、月2回のコンテナ回収日にお出しください。"}, {"item": "なべ", "category": "その他", "note": "コンテナ回収の対象です。"}, {"item": "ぬいぐるみ", "category": "その他", "note": "燃やせるごみとして週2回収集します。"}, {"item": "ベッド", "category": "その他", "note": "収集には事前の申し込みと手数料券が必要です。"}, {"item": "ミシン", "category": "その他", "note": "申込制で回収します。"}, {"item": "物干し竿", "category": "粗大ごみ", "note": "粗大ごみです。事前申込が必要です。"}, {"item": "冷蔵庫", "category": "その他", "note": "収集の対象外です。購入店にご相談ください。"}], "Minase市": [{"item": "ペットボトル", "category": "資源ごみ", "note": ""}, {"item": "新聞紙(折込チラシを含む)", "category": "資源ごみ", "note": ""}, {"item": "段ボール", "category": "資源ごみ", "note": ""}, {"item": "アルミ缶", "category": "資源ごみ", "note": ""}, {"item": "スチール缶", "category": "資源ごみ", "note": ""}, {"item": "空きびん", "category": "資源ごみ", "note": ""}, {"item": "割りばし", "category": "可燃ごみ", "note": ""}, {"item": "紙オムツ", "category": "可燃ごみ", "note": ""}, {"item": "乾電池", "category": "不燃ごみ", "note": ""}, {"item": "蛍光灯", "category": "不燃ごみ", "note": ""}, {"item": "傘", "category": "不燃ごみ", "note": ""}, {"item": "靴", "category": "可燃ごみ", "note": ""}, {"item": "衣料品", "category": "可燃ごみ", "note": ""}, {"item": "生ゴミ", "category": "可燃ごみ", "note": ""}, {"item": "食用油", "category": "可燃ごみ", "note": ""}, {"item": "プラスチック容器", "category": "可燃ごみ", "note": ""}, {"item": "発泡スチロール", "category": "可燃ごみ", "note": ""}, {"item": "CD・DVD", "category": "可燃ごみ", "note": ""}, {"item": "鏡(手鏡)", "category": "不燃ごみ", "note": ""}, {"item": "包丁", "category": "不燃ごみ", "note": ""}, {"item": "自転車", "category": "粗大ごみ", "note": ""}, {"item": "布団", "category": "可燃ごみ", "note": ""}, {"item": "扇風機", "category": "不燃ごみ", "note": ""}, {"item": "電子レンジ", "category": "不燃ごみ", "note": ""}, {"item": "パソコン", "category": "処理困難物", "note": ""}, {"item": "アイロン", "category": "不燃ごみ", "note": ""}, {"item": "傘立て", "category": "不燃ごみ", "note": ""}, {"item": "鏡台", "category": "粗大ごみ", "note": ""}, {"item": "ギター", "category": "粗大ごみ", "note": ""}, {"item": "キャリーバッグ", "category": "粗大ごみ", "note": ""}, {"item": "消火器", "category": "処理困難物", "note": ""}, {"item": "食器棚", "category": "粗大ごみ", "note": ""}, {"item": "スキー板", "category": "粗大ごみ", "note": ""}, {"item": "スプレー缶", "category": "不燃ごみ", "note": ""}, {"item": "畳", "category": "処理困難物", "note": ""}, {"item": "テレビ", "category": "処理困難物", "note": ""}, {"item": "灯油", "category": "処理困難物", "note": ""}, {"item": "ドライヤー", "category": "不燃ごみ", "note": ""}, {"item": "バッテリー", "category": "処理困難物", "note": ""}, {"item": "ビデオデッキ", "category": "不燃ごみ", "note": ""}, {"item": "ベッド", "category": "粗大ごみ", "note": ""}, {"item": "ペンキ", "category": "処理困難物", "note": ""}, {"item": "ミシン", "category": "粗大ごみ", "note": ""}, {"item": "物干し竿", "category": "粗大ごみ", "note": ""}, {"item": "冷蔵庫", "category": "処理困難物", "note": ""}], "Sakuraba市": [{"item": "ペットボトル", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "新聞紙", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "ダンボール", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "アルミ缶", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "スチール缶", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "ガラスびん", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "割りばし", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "紙おむつ", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "乾電池", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}, {"item": "蛍光灯", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}, {"item": "傘", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "靴", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "衣類", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "生ごみ", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "食用油", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "プラスチック容器", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "発泡スチロール", "category": "資源", "note": "汚れを落としてから資源回収日に出してください。"}, {"item": "CD・DVD", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "鏡", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "包丁", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "自転車", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "布団", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "扇風機", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "電子レンジ", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "パソコン", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}, {"item": "アイロン", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "石油ストーブ", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "カーペット", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "ガスコンロ", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "体温計(水銀)", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}, {"item": "畳", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}, {"item": "やかん", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "机", "category": "粗大ごみ", "note": "事前に申し込み、粗大ごみ処理券を貼ってください。"}, {"item": "時計", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "なべ", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "ぬいぐるみ", "category": "もえるごみ", "note": "指定袋に入れ、収集日の朝8時までに出してください。"}, {"item": "プランター", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "ライター", "category": "もえないごみ", "note": "指定袋に入れ、月2回の収集日に出してください。"}, {"item": "冷蔵庫", "category": "市で収集しないもの", "note": "市では収集しません。販売店または専門業者へお問い合わせください。"}], "Takatori市": [{"item": "ﾍﾟｯﾄﾎﾞﾄﾙ（飲料用）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "新聞紙", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "段ﾎﾞｰﾙ（箱）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "ｱﾙﾐ缶", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "ｽﾁｰﾙ缶", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "ｶﾞﾗｽびん（飲食用）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "割りばし", "category": "燃やすごみ", "note": "収集日の午前8時までにステーションへ。"}, {"item": "紙おむつ（使用済み）", "category": "燃やすごみ", "note": "収集日の午前8時までにステーションへ。"}, {"item": "乾電池（１次･２次）", "category": "取扱困難物", "note": "市の施設では処理できません。"}, {"item": "蛍光灯（直管･丸形）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "傘（雨傘･日傘）", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "靴（革･布）", "category": "燃やすごみ", "note": "収集日の午前8時までにステーションへ。"}, {"item": "衣類（古着）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "生ごみ（水切りのうえ）", "category": "燃やすごみ", "note": "収集日の午前8時までにステーションへ。"}, {"item": "食用油（天ぷら油）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "ﾌﾟﾗｽﾁｯｸ容器（食品用･洗剤用）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "発泡ｽﾁﾛｰﾙ（白色ﾄﾚｲを除く）", "category": "資源物", "note": "資源回収日にステーションへお出しください。"}, {"item": "ＣＤ･ＤＶＤ（ｹｰｽを除く）", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "鏡（３０ｃｍ未満）", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "包丁（刃物）", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "自転車（２０ｲﾝﾁ以上）", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "布団（敷布団･掛布団）", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "扇風機（家庭用）", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "電子ﾚﾝｼﾞ（家庭用）", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ﾊﾟｿｺﾝ（ﾉｰﾄ型･ﾃﾞｽｸﾄｯﾌﾟ型）", "category": "取扱困難物", "note": "市の施設では処理できません。"}, {"item": "ｱｲﾛﾝ", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "石油ｽﾄｰﾌﾞ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ｶｰﾍﾟｯﾄ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "草刈機", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ｸｰﾗｰﾎﾞｯｸｽ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "消火器", "category": "取扱困難物", "note": "市の施設では処理できません。"}, {"item": "食器棚", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ｽｰﾂｹｰｽ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ｽﾌﾟﾚｰ缶", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "ﾃﾚﾋﾞ", "category": "取扱困難物", "note": "市の施設では処理できません。"}, {"item": "時計", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "ﾄﾞﾗｲﾔｰ", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "はさみ", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "ﾎｰｽ", "category": "燃やすごみ", "note": "収集日の午前8時までにステーションへ。"}, {"item": "ﾏｯﾄﾚｽ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}, {"item": "ﾗｼﾞｶｾ", "category": "燃やさないごみ", "note": "月1回の収集日に透明袋でお出しください。"}, {"item": "ﾛｯｶｰ", "category": "粗大ごみ", "note": "収集申込センターへ申し込みが必要です。"}], "Yuzuki市": [{"item": "ペットボトル", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "新聞紙", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "段ボール", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "アルミ缶", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "スチール缶", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "ガラスびん", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "割りばし", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "紙おむつ", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "アルカリ乾電池", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "マンガン乾電池", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "ボタン電池", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "直管蛍光灯", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "電球形蛍光ランプ", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "丸形蛍光灯", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "雨傘", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "日傘", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "折りたたみ傘", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "革靴", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "運動靴", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "長靴", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "衣類", "category": "資源ごみ", "note": "資源回収日に、種類ごとに分けてお出しください。"}, {"item": "生ごみ", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "食用油", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "食品トレイ", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "プラスチック製ボトル", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "発泡スチロール", "category": "可燃ごみ", "note": "指定袋に入れてお出しください。"}, {"item": "CD", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "DVD", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "鏡", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "包丁", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "自転車", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "布団", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "扇風機", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "電子レンジ", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "パソコン", "category": "適正処理困難物", "note": "メーカーまたは販売店の回収をご利用ください。"}, {"item": "石油ストーブ", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "カーペット", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "ガスコンロ", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "消火器", "category": "適正処理困難物", "note": "メーカーまたは販売店の回収をご利用ください。"}, {"item": "スプレー缶", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "テレビ", "category": "適正処理困難物", "note": "メーカーまたは販売店の回収をご利用ください。"}, {"item": "ドライヤー", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "はさみ", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "ベッド", "category": "粗大ごみ", "note": "1辺が30cmを超えるものは粗大ごみです。"}, {"item": "ライター", "category": "不燃ごみ", "note": "危険物は新聞紙などで包んでください。"}, {"item": "冷蔵庫", "category": "適正処理困難物", "note": "メーカーまたは販売店の回収をご利用ください。"}]}, "common": ["CD・DVD", "アルミ缶", "ガラスびん", "スチール缶", "パソコン", "ペットボトル", "乾電池", "傘", "割りばし", "包丁", "布団", "扇風機", "新聞紙", "段ボール", "生ごみ", "発泡スチロール", "紙おむつ", "自転車", "蛍光灯", "衣類", "鏡", "電子レンジ", "靴", "食用油"], "aliases": {"CD・DVD": ["CD", "DVD", "CD/DVD"], "ガラスびん": ["ガラス瓶", "びん", "瓶"], "アルミ缶": ["アルミ"], "スチール缶": ["スチール"], "パソコン": ["PC"], "ペットボトル": ["ペット"], "乾電池": ["電池"], "割りばし": ["割箸", "わりばし"], "新聞紙": ["新聞"], "段ボール": ["ダンボール"], "生ごみ": ["生ゴミ", "厨芥"], "発泡スチロール": ["発泡", "スチロール"], "紙おむつ": ["紙オムツ", "おむつ"], "蛍光灯": ["蛍光管"], "衣類": ["衣服", "古着","衣料品"], "電子レンジ": ["レンジ"], "食用油": ["廃食油", "天ぷら油", "てんぷら油", "油"]}};
+
+/* processed_data の「共通品目名」が5市すべてに存在する24品目。
+   水無瀬市で共通品目名が空欄の「プラスチック容器」は要件判定から除外。 */
+const COMMON=[
+"CD・DVD","アルミ缶","ガラスびん","スチール缶","パソコン","ペットボトル","乾電池","傘",
+"割りばし","包丁","布団","扇風機","新聞紙","段ボール","生ごみ","発泡スチロール","紙おむつ",
+"自転車","蛍光灯","衣類","鏡","電子レンジ","靴","食用油"
+].filter(x=>x!=="プラスチック容器");
+
+const CITY_LABELS={"Aoi市":"蒼井市","Minase市":"水無瀬市","Sakuraba市":"桜庭市","Takatori市":"鷹取市","Yuzuki市":"柚木市"};
+const search=document.getElementById("search"), chips=document.getElementById("chips"), cards=document.getElementById("cards");
+const result=document.getElementById("result"), empty=document.getElementById("empty"), itemTitle=document.getElementById("itemTitle");
+
+function norm(s){return String(s??"").normalize("NFKC").toLowerCase().replace(/[・･\s　]/g,"").replace(/（[^）]*）|\([^)]*\)/g,"")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function style(c){c=String(c);if(/困難|収集しない/.test(c))return["#fff1f2","#be123c"];if(/粗大/.test(c))return["#fff7ed","#c2410c"];if(/資源|リサイクル/.test(c))return["#ecfdf5","#047857"];if(/可燃|燃やす|燃える|もえる/.test(c))return["#fff7ed","#c2410c"];if(/不燃|燃やさない|燃やせない|もえない/.test(c))return["#eff6ff","#1d4ed8"];return["#f3f4f6","#374151"]}
+
+
+const CSV_CONDITIONS={"水無瀬市":{"新聞紙":["折込チラシを含む"],"鏡":["手鏡"]},"柚木市":{"乾電池":["アルカリ","マンガン","ボタン"],"蛍光灯":["直管","電球形","丸形"],"傘":["雨傘","日傘","折りたたみ"],"靴":["革","運動","長"],"CD・DVD":["CD","DVD"]},"鷹取市":{"ペットボトル":["飲料用"],"段ボール":["箱"],"ガラスびん":["飲料用"],"紙おむつ":["使用済み"],"乾電池":["１次・２次"],"蛍光灯":["直管・丸形"],"傘":["雨傘・日傘"],"靴":["革・布"],"衣類":["古着"],"生ごみ":["水切りのうえ"],"食用油":["天ぷら油"],"プラスチック容器":["食品用・洗剤用"],"発泡スチロール":["白色トレイを除く"],"CD・DVD":["ケースを除く"],"鏡":["３０ｃｍ未満"],"包丁":["刃物"],"自転車":["２０インチ以上"],"布団":["敷布団・掛布団"],"扇風機":["家庭用"],"電子レンジ":["家庭用"],"パソコン":["ノート型・デスクトップ型"]}};
+const PROCESSED_FILES={
+ "蒼井市":"processed_data/aoi.csv",
+ "水無瀬市":"processed_data/nimase.csv",
+ "桜庭市":"processed_data/sakuraba.csv",
+ "鷹取市":"processed_data/takatori.csv",
+ "柚木市":"processed_data/yuzuki.csv"
+};
+const PROCESSED_DETAILS={};
+
+function parseCsv(text){
+ const rows=[];let row=[],cell="",quoted=false;
+ text=String(text).replace(/^\uFEFF/,"");
+ for(let i=0;i<text.length;i++){
+   const c=text[i],next=text[i+1];
+   if(c==='"' && quoted && next==='"'){cell+='"';i++}
+   else if(c==='"'){quoted=!quoted}
+   else if(c==="," && !quoted){row.push(cell);cell=""}
+   else if((c==="\n" || c==="\r") && !quoted){
+     if(c==="\r" && next==="\n")i++;
+     row.push(cell);cell="";
+     if(row.some(x=>x!==""))rows.push(row);
+     row=[];
+   }else cell+=c;
+ }
+ if(cell!=="" || row.length){row.push(cell);rows.push(row)}
+ return rows;
+}
+
+const processedReady=Promise.all(Object.entries(PROCESSED_FILES).map(async([city,path])=>{
+ const response=await fetch(path);
+ if(!response.ok)throw new Error(`${path}: ${response.status}`);
+ const [header,...rows]=parseCsv(await response.text());
+ const at=Object.fromEntries(header.map((name,index)=>[name,index]));
+ PROCESSED_DETAILS[city]={};
+ rows.forEach(row=>{
+   const common=(row[at["共通品目名"]]||"").trim();
+   if(!common)return;
+   (PROCESSED_DETAILS[city][common]??=[]).push({
+     localCategory:(row[at["自治体区分"]]||"").trim(),
+     commonCategory:(row[at["共通区分"]]||"").trim(),
+     condition:(row[at["条件"]]||"").trim(),
+     note:(row[at["出し方"]]||"").trim(),
+     warning:(row[at["要チェック"]]||"").trim()
+   });
+ });
+})).catch(error=>console.warn("加工済みCSVを読み込めなかったため、埋め込みデータを表示します。",error));
+
+const ALL_ITEMS=[...new Set(Object.values(D.cities).flat().map(r=>String(r.item||"").trim()).filter(Boolean))]
+  .sort((a,b)=>a.localeCompare(b,"ja"));
+
+function findExactOriginal(name){
+ const q=norm(name), out={};
+ for(const key of Object.keys(CITY_LABELS)){
+   out[key]=(D.cities[key]||[]).filter(r=>norm(r.item)===q);
+ }
+ return out;
+}
+
+function findRows(cityKey,name){
+ const rs=D.cities[cityKey]||[], q=norm(name);
+ let hits=rs.filter(x=>norm(x.item)===q);
+ if(hits.length)return hits;
+ const aliases=D.aliases[name]||[];
+ hits=rs.filter(x=>aliases.some(a=>norm(x.item).includes(norm(a))) || norm(x.item).includes(q) || q.includes(norm(x.item)));
+ return hits;
+}
+async function show(name,isCommon=COMMON.includes(name),setSearchValue=false){
+ await processedReady;
+ document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("selected",b.dataset.name===name));
+ if(setSearchValue) search.value=name; itemTitle.textContent=name; cards.innerHTML="";
+ const exact=isCommon?null:findExactOriginal(name);
+ let shown=0;
+ for(const key of Object.keys(CITY_LABELS)){
+   const hits=isCommon?findRows(key,name):(exact[key]||[]);
+   const card=document.createElement("article");card.className="card";
+   if(!hits.length){
+     card.innerHTML=`<h3>${CITY_LABELS[key]}</h3><div class="badge" style="background:#f3f4f6;color:#687386">該当なし</div>`;
+   }else{
+     shown++;
+     // 同じ共通品目に複数の元データが対応する場合でも、
+     // 5市比較では自治体ごとに1件だけ表示する。
+     const r=hits[0];
+     const city=CITY_LABELS[key];
+     const details=(PROCESSED_DETAILS[city]||{})[name]||[];
+     const unique=values=>[...new Set(values.filter(Boolean))];
+     const commonCategories=unique(details.map(x=>x.commonCategory));
+     const localCategories=unique(details.map(x=>x.localCategory));
+     const displayCategory=commonCategories.join("・")||r.category;
+     const localCategory=localCategories.join("・")||r.category;
+     const s=style(displayCategory);
+
+     // processed_data の「条件」列をそのまま使用する。
+     const conditions=details.length
+       ? unique(details.map(x=>x.condition))
+       : (CSV_CONDITIONS[city]||{})[name]||[];
+     const condition=conditions.join("・");
+
+     // 説明も重複を除いてまとめる。
+     const notes=details.length
+       ? unique(details.map(x=>x.note))
+       : unique(hits.map(x=>String(x.note||"").trim()));
+     const warnings=unique(details.map(x=>x.warning));
+
+     card.innerHTML=`<h3>${city}</h3>
+       <div class="badge" style="background:${s[0]};color:${s[1]}">${esc(displayCategory)}</div>
+       <div class="meta"><b>自治体区分</b>${esc(localCategory)}</div>
+       ${condition ? `<div class="meta"><b>条件</b>${esc(condition)}</div>` : ""}
+       ${notes.map(n=>`<div class="note">${esc(n)}</div>`).join("")}
+       ${warnings.map(w=>`<div class="warn">要チェック：${esc(w)}</div>`).join("")}`;
+   }
+   cards.appendChild(card);
+ }
+ document.querySelector(".ok").textContent=isCommon?"5市すべて比較":`${shown}市に登録`;
+ result.classList.add("show");empty.style.display="none";
+}
+function resolve(q){
+ const n=norm(q); if(!n)return null;
+ const common=COMMON.find(x=>norm(x)===n) ||
+   COMMON.find(x=>(D.aliases[x]||[]).some(a=>norm(a)===n));
+ if(common)return {name:common,common:true};
+ const exact=ALL_ITEMS.find(x=>norm(x)===n);
+ if(exact)return {name:exact,common:false};
+ return null;
+}
+COMMON.forEach(name=>{
+ const b=document.createElement("button");b.className="chip";b.dataset.name=name;b.textContent=name;b.onclick=()=>show(name,true,true);chips.appendChild(b);
+});
+[...new Set([...COMMON,...ALL_ITEMS])].sort((a,b)=>a.localeCompare(b,"ja")).forEach(name=>{
+ const o=document.createElement("option");o.value=name;document.getElementById("items").appendChild(o);
+});
+document.getElementById("commonCount").textContent=COMMON.length;
+document.getElementById("allCount").textContent=ALL_ITEMS.length;
+search.addEventListener("input",e=>{
+ const q=e.target.value.trim();
+ const x=resolve(q);
+ if(x){
+   show(x.name,x.common,false);
+ }else{
+   document.querySelectorAll(".chip").forEach(b=>b.classList.remove("selected"));
+   cards.innerHTML="";
+   result.classList.remove("show");
+   empty.style.display="block";
+   if(q){
+     empty.textContent=`「${q}」に該当する品目は見つかりませんでした。`;
+   }else{
+     empty.textContent="品目名を入力するか、5市共通品目から選択してください。";
+   }
+ }
+});
+search.addEventListener("keydown",e=>{
+ if(e.key==="Enter"){
+   const x=resolve(e.target.value);
+   if(x){e.preventDefault();show(x.name,x.common,false)}
+ }
+});
+document.getElementById("clear").onclick=()=>{search.value="";document.querySelectorAll(".chip").forEach(b=>b.classList.remove("selected"));result.classList.remove("show");empty.style.display="block"};
+</script>
+</body></html>
